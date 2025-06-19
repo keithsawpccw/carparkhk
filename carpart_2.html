@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Car Park Vacancy and Information</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .car-park {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Car Park Vacancy and Information</h1>
+    <div id="car-parks"></div>
+
+    <script>
+        async function fetchCarParkData() {
+            try {
+                const vacancyResponse = await fetch('http://resource.data.one.gov.hk/td/carpark/vacancy_tdc166p1.json');
+                const basicInfoResponse = await fetch('https://resource.data.one.gov.hk/td/carpark/basic_info_tdc166p1.json');
+
+                if (!vacancyResponse.ok || !basicInfoResponse.ok) {
+                    throw new Error('Network response was not ok');
+                }
+
+                const vacancyData = await vacancyResponse.json();
+                const basicInfoData = await basicInfoResponse.json();
+
+                const mergedData = mergeData(vacancyData, basicInfoData);
+                displayCarParkData(mergedData);
+            } catch (error) {
+                console.error('There was a problem with the fetch operation:', error);
+            }
+        }
+
+        function mergeData(vacancyData, basicInfoData) {
+            const basicInfoMap = new Map();
+            basicInfoData.car_park.forEach(carPark => {
+                basicInfoMap.set(carPark.park_id, carPark);
+            });
+
+            const mergedData = vacancyData.car_park.map(carPark => {
+                const basicInfo = basicInfoMap.get(carPark.park_id);
+                return {
+                    park_id: carPark.park_id,
+                    name_tc: basicInfo ? basicInfo.name_tc : 'N/A',
+                    district_tc: basicInfo ? basicInfo.district_tc : 'N/A',
+                    vacancy: carPark.vehicle_type[0].service_category[0].vacancy,
+                    lastupdate: carPark.vehicle_type[0].service_category[0].lastupdate
+                };
+            });
+
+            return mergedData;
+        }
+
+        function displayCarParkData(data) {
+            const carParksDiv = document.getElementById('car-parks');
+            carParksDiv.innerHTML = ''; // Clear previous content
+
+            data.forEach(carPark => {
+                const carParkDiv = document.createElement('div');
+                carParkDiv.className = 'car-park';
+                carParkDiv.innerHTML = `
+                    <strong>Car Park: ${carPark.name_tc}</strong><br>
+                    District: ${carPark.district_tc}<br>
+                    Vacancy: ${carPark.vacancy}<br>
+                    Last Updated: ${carPark.lastupdate}
+                `;
+                carParksDiv.appendChild(carParkDiv);
+            });
+        }
+
+        // Fetch and display the data when the page loads
+        window.onload = fetchCarParkData;
+    </script>
+</body>
+</html>

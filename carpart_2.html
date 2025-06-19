@@ -22,7 +22,7 @@
         async function fetchCarParkData() {
             try {
                 const vacancyResponse = await fetch('https://resource.data.one.gov.hk/td/carpark/vacancy_tdc166p1.json');
-                const basicInfoResponse = await fetch('https://resource.data.one.gov.hk/td/carpark/basic_info_tdc166p1.json');
+                const basicInfoResponse = await fetch('http://resource.data.one.gov.hk/td/carpark/basic_info_tdc166p1.json');
 
                 if (!vacancyResponse.ok || !basicInfoResponse.ok) {
                     throw new Error('Network response was not ok');

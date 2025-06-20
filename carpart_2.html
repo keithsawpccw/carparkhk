@@ -1,82 +1,48 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Car Park Vacancy and Information</title>
+    <title>Parking Vacancy</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-        }
-        .car-park {
-            margin-bottom: 10px;
-        }
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .vacancy-info { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .vacancy-count { font-size: 24px; font-weight: bold; color: #2c3e50; }
+        .last-update { font-size: 14px; color: #7f8c8d; margin-top: 5px; }
     </style>
 </head>
 <body>
-    <h1>Car Park Vacancy and Information</h1>
-    <div id="car-parks"></div>
+    <h1>Parking Vacancy Information</h1>
+    
+    <div id="vacancyDisplay" class="vacancy-info">
+        <div class="vacancy-count">Loading...</div>
+        <div class="last-update"></div>
+    </div>
 
     <script>
-        async function fetchCarParkData() {
-            try {
-                const vacancyResponse = await fetch('http://resource.data.one.gov.hk/td/carpark/vacancy_tdc166p1.json');
-                const basicInfoResponse = await fetch('http://resource.data.one.gov.hk/td/carpark/basic_info_tdc166p1.json');
-
-                if (!vacancyResponse.ok || !basicInfoResponse.ok) {
+        // Fetch JSON data from the URL
+        fetch('https://resource.data.one.gov.hk/td/carpark/vacancy_tdc166p1.json')
+            .then(response => {
+                if (!response.ok) {
                     throw new Error('Network response was not ok');
                 }
-
-                const vacancyData = await vacancyResponse.json();
-                const basicInfoData = await basicInfoResponse.json();
-
-                const mergedData = mergeData(vacancyData, basicInfoData);
-                displayCarParkData(mergedData);
-            } catch (error) {
-                console.error('There was a problem with the fetch operation:', error);
-            }
-        }
-
-        function mergeData(vacancyData, basicInfoData) {
-            const basicInfoMap = new Map();
-            basicInfoData.car_park.forEach(carPark => {
-                basicInfoMap.set(carPark.park_id, carPark);
-            });
-
-            const mergedData = vacancyData.car_park.map(carPark => {
-                const basicInfo = basicInfoMap.get(carPark.park_id);
-                return {
-                    park_id: carPark.park_id,
-                    name_tc: basicInfo ? basicInfo.name_tc : 'N/A',
-                    district_tc: basicInfo ? basicInfo.district_tc : 'N/A',
-                    vacancy: carPark.vehicle_type[0].service_category[0].vacancy,
-                    lastupdate: carPark.vehicle_type[0].service_category[0].lastupdate
-                };
-            });
-
-            return mergedData;
-        }
-
-        function displayCarParkData(data) {
-            const carParksDiv = document.getElementById('car-parks');
-            carParksDiv.innerHTML = ''; // Clear previous content
-
-            data.forEach(carPark => {
-                const carParkDiv = document.createElement('div');
-                carParkDiv.className = 'car-park';
-                carParkDiv.innerHTML = `
-                    <strong>Car Park: ${carPark.name_tc}</strong><br>
-                    District: ${carPark.district_tc}<br>
-                    Vacancy: ${carPark.vacancy}<br>
-                    Last Updated: ${carPark.lastupdate}
+                return response.json();
+            })
+            .then(data => {
+                // Extract relevant data
+                const vacancy = data.car_park[0].vehicle_type[0].service_category[0].vacancy;
+                const lastUpdate = data.car_park[0].vehicle_type[0].service_category[0].lastupdate;
+                
+                // Update DOM with results
+                document.querySelector('.vacancy-count').textContent = `Available Spaces: ${vacancy}`;
+                document.querySelector('.last-update').textContent = `Last Updated: ${lastUpdate}`;
+            })
+            .catch(error => {
+                // Handle errors
+                document.getElementById('vacancyDisplay').innerHTML = `
+                    <div class="error" style="color: red;">
+                        Error loading parking data: ${error.message}
+                    </div>
                 `;
-                carParksDiv.appendChild(carParkDiv);
             });
-        }
-
-        // Fetch and display the data when the page loads
-        window.onload = fetchCarParkData;
     </script>
 </body>
 </html>

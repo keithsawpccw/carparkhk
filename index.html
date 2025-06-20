@@ -2,97 +2,170 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>停車場詳情</title>
+    <title>多個停車場資訊</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         body { 
             font-family: 'Microsoft JhengHei', sans-serif;
             padding: 20px;
-            max-width: 600px;
+            background: #f4f4f4;
+        }
+        .container {
+            max-width: 800px;
             margin: 0 auto;
         }
-        .section {
-            margin: 20px 0;
-            padding: 15px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            background: #f9f9f9;
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #3498db;
+            color: white;
+            border-radius: 10px;
         }
-        h2 {
+        .carpark-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 15px 0;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+        }
+        .carpark-card:hover {
+            transform: translateY(-5px);
+        }
+        .carpark-name {
+            font-size: 24px;
             color: #2c3e50;
-            border-bottom: 2px solid #3498db;
-            padding-bottom: 5px;
+            margin-bottom: 10px;
+        }
+        .info {
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+        }
+        .info-item {
+            width: 48%;
+            margin: 8px 0;
         }
         .label {
             font-weight: bold;
             color: #333;
         }
         .value {
-            margin: 8px 0 15px 0;
             color: #555;
         }
         .vacancy {
-            font-size: 24px;
+            font-size: 20px;
             color: #e74c3c;
-            margin: 10px 0;
+            margin-top: 15px;
+        }
+        .loading {
+            text-align: center;
+            padding: 30px;
+            color: #7f8c8d;
+        }
+        .error {
+            color: red;
+            text-align: center;
+            padding: 20px;
         }
     </style>
 </head>
 <body>
-    <h1>停車場詳細資訊</h1>
-    
-    <div id="carparkInfo" class="section">
-        <div class="loading">載入資料中...</div>
+    <div class="container">
+        <div class="header">
+            <h1>停車場即時資訊</h1>
+            <p>整合即時車位資訊與基本資料</p>
+        </div>
+        
+        <div id="carparkList">
+            <div class="loading">載入停車場資料中...</div>
+        </div>
     </div>
 
     <script>
         // 同時獲取兩個JSON資料
         Promise.all([
-            fetch('https://resource.data.one.gov.hk/td/carpark/vacancy_tdc166p1.json'),
-            fetch('https://resource.data.one.gov.hk/td/carpark/basic_info_tdc166p1.json')
+            fetch('https://resource.data.one.gov.hk/td/carpark/vacancy_all.json'),
+            fetch('https://resource.data.one.gov.hk/td/carpark/basic_info_all.json')
         ])
         .then(responses => Promise.all(responses.map(r => r.json())))
         .then(([vacancyData, infoData]) => {
-            // 合併資料
-            const carpark = {
-                ...vacancyData.car_park[0],
-                ...infoData.car_park[0]
-            };
+            // 建立基本資料的park_id查找表
+            const infoMap = new Map();
+            infoData.car_park.forEach(carpark => {
+                infoMap.set(carpark.park_id, carpark);
+            });
 
-            // 驗證park_id匹配
-            if (vacancyData.car_park[0].park_id !== infoData.car_park[0].park_id) {
-                throw new Error('Park ID 不匹配');
-            }
+            // 合併資料並過濾無效資料
+            const mergedData = vacancyData.car_park
+                .map(vacancy => {
+                    const info = infoMap.get(vacancy.park_id);
+                    return info ? { ...vacancy, ...info } : null;
+                })
+                .filter(Boolean); // 移除null值
 
-            // 建立顯示內容
-            const html = `
-                <h2>${carpark.name_tc}</h2>
-                <p class="label">地址：</p>
-                <p class="value">${carpark.displayAddress_tc}</p>
-                
-                <p class="label">備註：</p>
-                <p class="value">${carpark.remark_tc.replace('NULL', '無')}</p>
-                
-                <p class="label">聯絡電話：</p>
-                <p class="value">${carpark.contactNo || '未提供'}</p>
-                
-                <div class="vacancy">
-                    可用車位：${carpark.vehicle_type[0].service_category[0].vacancy}
-                    <br>
-                    <small>更新時間：${carpark.vehicle_type[0].service_category[0].lastupdate}</small>
-                </div>
-                
-                <img src="${carpark.carpark_photo}" alt="停車場照片" style="max-width:100%; border-radius:8px;">
-            `;
-
-            document.getElementById('carparkInfo').innerHTML = html;
+            // 顯示資料
+            displayCarparkData(mergedData);
         })
         .catch(error => {
-            document.getElementById('carparkInfo').innerHTML = `
-                <div class="error" style="color: red;">
+            document.getElementById('carparkList').innerHTML = `
+                <div class="error">
                     載入資料失敗：${error.message}
                 </div>
             `;
         });
+
+        function displayCarparkData(data) {
+            const container = document.getElementById('carparkList');
+            container.innerHTML = ''; // 清空載入提示
+
+            if (!data.length) {
+                container.innerHTML = '<div class="error">找不到停車場資料</div>';
+                return;
+            }
+
+            data.forEach(carpark => {
+                // 獲取即時車位資訊
+                const vacancyInfo = carpark.vehicle_type?.[0]?.service_category?.[0] || {};
+                
+                // 建立停車場卡內容
+                const card = document.createElement('div');
+                card.className = 'carpark-card';
+                
+                card.innerHTML = `
+                    <div class="carpark-name">${carpark.name_tc}</div>
+                    <div class="info">
+                        <div class="info-item">
+                            <div class="label">地址：</div>
+                            <div class="value">${carpark.displayAddress_tc}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="label">地區：</div>
+                            <div class="value">${carpark.district_tc}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="label">備註：</div>
+                            <div class="value">${carpark.remark_tc.replace('NULL', '無')}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="label">聯絡電話：</div>
+                            <div class="value">${carpark.contactNo || '未提供'}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="label">車位類型：</div>
+                            <div class="value">${vacancyInfo.category || '未提供'}</div>
+                        </div>
+                    </div>
+                    <div class="vacancy">
+                        可用車位：${vacancyInfo.vacancy ?? 'N/A'}
+                        ${vacancyInfo.lastupdate ? `<br><small>最後更新：${vacancyInfo.lastupdate}</small>` : ''}
+                    </div>
+                `;
+                
+                container.appendChild(card);
+            });
+        }
     </script>
 </body>
 </html>

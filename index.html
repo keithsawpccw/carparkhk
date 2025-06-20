@@ -1,48 +1,98 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-TW">
 <head>
-    <title>Parking Vacancy</title>
+    <meta charset="UTF-8">
+    <title>停車場詳情</title>
     <style>
-        body { font-family: Arial, sans-serif; padding: 20px; }
-        .vacancy-info { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
-        .vacancy-count { font-size: 24px; font-weight: bold; color: #2c3e50; }
-        .last-update { font-size: 14px; color: #7f8c8d; margin-top: 5px; }
+        body { 
+            font-family: 'Microsoft JhengHei', sans-serif;
+            padding: 20px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background: #f9f9f9;
+        }
+        h2 {
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 5px;
+        }
+        .label {
+            font-weight: bold;
+            color: #333;
+        }
+        .value {
+            margin: 8px 0 15px 0;
+            color: #555;
+        }
+        .vacancy {
+            font-size: 24px;
+            color: #e74c3c;
+            margin: 10px 0;
+        }
     </style>
 </head>
 <body>
-    <h1>Parking Vacancy Information</h1>
+    <h1>停車場詳細資訊</h1>
     
-    <div id="vacancyDisplay" class="vacancy-info">
-        <div class="vacancy-count">Loading...</div>
-        <div class="last-update"></div>
+    <div id="carparkInfo" class="section">
+        <div class="loading">載入資料中...</div>
     </div>
 
     <script>
-        // Fetch JSON data from the URL
-        fetch('https://resource.data.one.gov.hk/td/carpark/vacancy_tdc166p1.json')
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Network response was not ok');
-                }
-                return response.json();
-            })
-            .then(data => {
-                // Extract relevant data
-                const vacancy = data.car_park[0].vehicle_type[0].service_category[0].vacancy;
-                const lastUpdate = data.car_park[0].vehicle_type[0].service_category[0].lastupdate;
+        // 同時獲取兩個JSON資料
+        Promise.all([
+            fetch('https://resource.data.one.gov.hk/td/carpark/vacancy_tdc166p1.json'),
+            fetch('https://resource.data.one.gov.hk/td/carpark/basic_info_tdc166p1.json')
+        ])
+        .then(responses => Promise.all(responses.map(r => r.json())))
+        .then(([vacancyData, infoData]) => {
+            // 合併資料
+            const carpark = {
+                ...vacancyData.car_park[0],
+                ...infoData.car_park[0]
+            };
+
+            // 驗證park_id匹配
+            if (vacancyData.car_park[0].park_id !== infoData.car_park[0].park_id) {
+                throw new Error('Park ID 不匹配');
+            }
+
+            // 建立顯示內容
+            const html = `
+                <h2>${carpark.name_tc}</h2>
+                <p class="label">地址：</p>
+                <p class="value">${carpark.displayAddress_tc}</p>
                 
-                // Update DOM with results
-                document.querySelector('.vacancy-count').textContent = `Available Spaces: ${vacancy}`;
-                document.querySelector('.last-update').textContent = `Last Updated: ${lastUpdate}`;
-            })
-            .catch(error => {
-                // Handle errors
-                document.getElementById('vacancyDisplay').innerHTML = `
-                    <div class="error" style="color: red;">
-                        Error loading parking data: ${error.message}
-                    </div>
-                `;
-            });
+                <p class="label">備註：</p>
+                <p class="value">${carpark.remark_tc.replace('NULL', '無')}</p>
+                
+                <p class="label">聯絡電話：</p>
+                <p class="value">${carpark.contactNo || '未提供'}</p>
+                
+                <div class="vacancy">
+                    可用車位：${carpark.vehicle_type[0].service_category[0].vacancy}
+                    <br>
+                    <small>更新時間：${carpark.vehicle_type[0].service_category[0].lastupdate}</small>
+                </div>
+                
+                <img src="${carpark.carpark_photo}" alt="停車場照片" style="max-width:100%; border-radius:8px;">
+            `;
+
+            document.getElementById('carparkInfo').innerHTML = html;
+        })
+        .catch(error => {
+            document.getElementById('carparkInfo').innerHTML = `
+                <div class="error" style="color: red;">
+                    載入資料失敗：${error.message}
+                </div>
+            `;
+        });
     </script>
 </body>
 </html>

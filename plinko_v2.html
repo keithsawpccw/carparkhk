@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Plinko Physics Game</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+    }
+    #board {
+      position: relative;
+      width: 600px;
+      height: 600px;
+      margin: 20px auto;
+      border: 2px solid #333;
+      overflow: hidden;
+      background: #f0f0f0;
+    }
+    .peg {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      background: #333;
+      border-radius: 50%;
+    }
+    .coin {
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      background: red;
+      border-radius: 50%;
+      z-index: 2;
+    }
+    .slot {
+      position: absolute;
+      bottom: 0;
+      width: 50px;
+      height: 40px;
+      border: 1px solid #333;
+      text-align: center;
+      line-height: 40px;
+      font-size: 14px;
+      background: #fff;
+    }
+    .bonus-zone {
+      position: absolute;
+      width: 60px;
+      height: 40px;
+      background: #00ff00;
+      opacity: 0.3;
+      border: 1px dashed #000;
+      text-align: center;
+      line-height: 40px;
+      font-weight: bold;
+    }
+    #score {
+      font-size: 24px;
+      margin-top: 20px;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 18px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <button onclick="startGame()">Drop Coin</button>
+  <div id="board"></div>
+  <div id="score">Score: 0</div>
+
+  <script>
+    const ROWS = 10;
+    const SPACING = 50;
+    const SLOTS = [100, 500, 1000, 0, 10000, 0, 10000, 0, 1000, 500, 100];
+    const BONUS_ZONES = [3, 7]; // Slot indices with 2x bonuses
+
+    let coin = null;
+    let velocity = { x: 0, y: 0 };
+    let position = { x: 0, y: 0 };
+    let isDropping = false;
+
+    function createPegs() {
+      const board = document.getElementById("board");
+      for (let row = 0; row < ROWS; row++) {
+        for (let col = 0; col <= row; col++) {
+          const peg = document.createElement("div");
+          peg.className = "peg";
+          const x = (board.offsetWidth / 2) - (row * SPACING / 2) + col * SPACING;
+          const y = row * SPACING;
+          peg.style.left = x + "px";
+          peg.style.top = y + "px";
+          board.appendChild(peg);
+        }
+      }
+    }
+
+    function createSlots() {
+      const board = document.getElementById("board");
+      const startX = (board.offsetWidth / 2) - ((SLOTS.length - 1) * SPACING / 2);
+      SLOTS.forEach((value, i) => {
+        const slot = document.createElement("div");
+        slot.className = "slot";
+        slot.style.left = startX + i * SPACING + "px";
+        slot.textContent = value;
+        board.appendChild(slot);
+      });
+    }
+
+    function createBonusZones() {
+      const board = document.getElementById("board");
+      const startX = (board.offsetWidth / 2) - ((SLOTS.length - 1) * SPACING / 2);
+      BONUS_ZONES.forEach(i => {
+        const zone = document.createElement("div");
+        zone.className = "bonus-zone";
+        zone.textContent = "2x";
+        zone.style.left = startX + i * SPACING + "px";
+        zone.style.top = "200px";
+        board.appendChild(zone);
+      });
+    }
+
+    function startGame() {
+      if (isDropping) return;
+      isDropping = true;
+      const board = document.getElementById("board");
+      const scoreDisplay = document.getElementById("score");
+      scoreDisplay.textContent = "Score: 0";
+
+      // Remove old coin
+      if (coin) coin.remove();
+
+      // Initialize physics
+      position = { x: board.offsetWidth / 2, y: 0 };
+      velocity = { x: 0, y: 0 };
+      coin = document.createElement("div");
+      coin.className = "coin";
+      board.appendChild(coin);
+
+      // Physics loop
+      function update() {
+        velocity.y += 0.5; // Gravity
+        position.x += velocity.x;
+        position.y += velocity.y;
+
+        // Bounce off walls
+        if (position.x < 0 || position.x > board.offsetWidth - 20) {
+          velocity.x *= -1;
+        }
+
+        checkCollisions();
+        coin.style.left = position.x + "px";
+        coin.style.top = position.y + "px";
+
+        if (position.y > board.offsetHeight - 20) {
+          endGame();
+        } else {
+          requestAnimationFrame(update);
+        }
+      }
+
+      function checkCollisions() {
+        const pegs = document.querySelectorAll(".peg");
+        pegs.forEach(peg => {
+          const pegRect = peg.getBoundingClientRect();
+          const coinRect = coin.getBoundingClientRect();
+          const dx = pegRect.left + 5 - (coinRect.left + 10);
+          const dy = pegRect.top + 5 - (coinRect.top + 10);
+          const distance = Math.sqrt(dx * dx + dy * dy);
+
+          if (distance < 15) {
+            const normalAngle = Math.atan2(dy, dx);
+            const speed = Math.hypot(velocity.x, velocity.y);
+            const angle = Math.atan2(velocity.y, velocity.x);
+            const newAngle = 2 * normalAngle - angle;
+            velocity.x = -speed * Math.cos(newAngle) * 0.7;
+            velocity.y = -speed * Math.sin(newAngle) * 0.7;
+
+            const overlap = 15 - distance;
+            position.x -= overlap * Math.cos(normalAngle);
+            position.y -= overlap * Math.sin(normalAngle);
+          }
+        });
+      }
+
+      function endGame() {
+        isDropping = false;
+        const boardWidth = board.offsetWidth;
+        const slotWidth = SPACING;
+        const startX = (boardWidth / 2) - ((SLOTS.length - 1) * SPACING / 2);
+        const slotIndex = Math.floor((position.x - startX) / slotWidth);
+        let baseScore = SLOTS[slotIndex] || 0;
+
+        // Apply bonus
+        let multiplier = 1;
+        if (BONUS_ZONES.includes(slotIndex)) {
+          multiplier = 2;
+        }
+        const finalScore = baseScore * multiplier;
+        scoreDisplay.textContent = `Score: ${finalScore} (${multiplier}x bonus)`;
+      }
+
+      update();
+    }
+
+    // Initialize
+    window.onload = () => {
+      createPegs();
+      createSlots();
+      createBonusZones();
+    };
+  </script>
+</body>
+</html>

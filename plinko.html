@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Pure HTML Plinko Game</title>
+    <style>
+        #board {
+            position: relative;
+            width: 600px;
+            height: 600px;
+            margin: 0 auto;
+            border: 2px solid #333;
+            overflow: hidden;
+        }
+        .peg {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background: #333;
+            border-radius: 50%;
+        }
+        .chip {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: red;
+            border-radius: 50%;
+            z-index: 2;
+        }
+        .slot {
+            position: absolute;
+            bottom: 0;
+            width: 50px;
+            height: 40px;
+            border: 1px solid #333;
+            text-align: center;
+            line-height: 40px;
+            font-family: Arial;
+            font-size: 14px;
+            background: #f0f0f0;
+        }
+        #score {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 24px;
+            font-family: Arial;
+        }
+        button {
+            display: block;
+            margin: 20px auto;
+            padding: 10px 20px;
+            font-size: 18px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <button onclick="dropChip()">Drop Chip</button>
+    <div id="board"></div>
+    <div id="score"></div>
+
+    <script>
+        const ROWS = 10;
+        const SPACING = 50;
+        const SLOTS = [100, 500, 1000, 0, 10000, 0, 10000, 0, 1000, 500, 100];
+
+        // Initialize board
+        function init() {
+            createPegs();
+            createSlots();
+        }
+
+        // Create pegs
+        function createPegs() {
+            const board = document.getElementById('board');
+            for (let row = 0; row < ROWS; row++) {
+                for (let col = 0; col <= row; col++) {
+                    const peg = document.createElement('div');
+                    peg.className = 'peg';
+                    
+                    const x = (board.offsetWidth / 2) - (row * SPACING / 2) + col * SPACING;
+                    const y = row * SPACING;
+                    
+                    peg.style.left = x + 'px';
+                    peg.style.top = y + 'px';
+                    
+                    board.appendChild(peg);
+                }
+            }
+        }
+
+        // Create slots
+        function createSlots() {
+            const board = document.getElementById('board');
+            const startX = (board.offsetWidth / 2) - ((SLOTS.length - 1) * SPACING / 2);
+            
+            SLOTS.forEach((value, i) => {
+                const slot = document.createElement('div');
+                slot.className = 'slot';
+                slot.style.left = (startX + i * SPACING) + 'px';
+                slot.textContent = value;
+                board.appendChild(slot);
+            });
+        }
+
+        // Drop chip animation
+        async function dropChip() {
+            const board = document.getElementById('board');
+            const scoreDisplay = document.getElementById('score');
+            scoreDisplay.textContent = '';
+            
+            // Remove previous chip if exists
+            const oldChip = document.querySelector('.chip');
+            if (oldChip) oldChip.remove();
+            
+            // Create new chip
+            const chip = document.createElement('div');
+            chip.className = 'chip';
+            board.appendChild(chip);
+            
+            // Initial position
+            let currentX = board.offsetWidth / 2;
+            let currentY = 0;
+            
+            // Generate path
+            const path = [];
+            for (let i = 0; i < ROWS; i++) {
+                path.push(Math.random() < 0.5 ? -1 : 1);
+            }
+            
+            // Animate each step
+            for (let step = 0; step < ROWS; step++) {
+                const direction = path[step];
+                const newX = currentX + direction * SPACING / 2;
+                const newY = currentY + SPACING;
+                
+                await animateStep(chip, currentX, currentY, newX, newY);
+                
+                currentX = newX;
+                currentY = newY;
+            }
+            
+            // Calculate final position
+            const sum = path.reduce((a, b) => a + b, 0);
+            const slotIndex = (sum + ROWS) / 2;
+            const finalScore = SLOTS[slotIndex] || 0;
+            
+            scoreDisplay.textContent = `Score: ${finalScore}`;
+        }
+
+        // Animate single step
+        function animateStep(chip, startX, startY, endX, endY) {
+            return new Promise(resolve => {
+                const duration = 200;
+                const startTime = performance.now();
+                
+                function step(timestamp) {
+                    const elapsed = timestamp - startTime;
+                    const progress = Math.min(elapsed / duration, 1);
+                    
+                    const x = startX + (endX - startX) * progress;
+                    const y = startY + (endY - startY) * progress;
+                    
+                    chip.style.left = x + 'px';
+                    chip.style.top = y + 'px';
+                    
+                    if (progress < 1) {
+                        requestAnimationFrame(step);
+                    } else {
+                        resolve();
+                    }
+                }
+                
+                requestAnimationFrame(step);
+            });
+        }
+
+        // Initialize on load
+        window.onload = init;
+    </script>
+</body>
+</html>

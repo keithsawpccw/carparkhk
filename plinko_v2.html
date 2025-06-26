@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Plinko Physics Game</title>
+  <title>Interactive Plinko Game</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -15,6 +15,7 @@
       border: 2px solid #333;
       overflow: hidden;
       background: #f0f0f0;
+      cursor: crosshair;
     }
     .peg {
       position: absolute;
@@ -53,6 +54,15 @@
       line-height: 40px;
       font-weight: bold;
     }
+    .start-indicator {
+      position: absolute;
+      width: 15px;
+      height: 15px;
+      border: 2px solid white;
+      background: transparent;
+      border-radius: 50%;
+      z-index: 3;
+    }
     #score {
       font-size: 24px;
       margin-top: 20px;
@@ -73,12 +83,13 @@
     const ROWS = 10;
     const SPACING = 50;
     const SLOTS = [100, 500, 1000, 0, 10000, 0, 10000, 0, 1000, 500, 100];
-    const BONUS_ZONES = [3, 7]; // Slot indices with 2x bonuses
+    const BONUS_ZONES = [3, 7];
 
     let coin = null;
     let velocity = { x: 0, y: 0 };
     let position = { x: 0, y: 0 };
     let isDropping = false;
+    let selectedStartX = null;
 
     function createPegs() {
       const board = document.getElementById("board");
@@ -120,24 +131,34 @@
       });
     }
 
+    function setStartIndicator(x) {
+      const board = document.getElementById("board");
+      const indicator = document.querySelector(".start-indicator");
+      if (indicator) indicator.remove();
+
+      const newIndicator = document.createElement("div");
+      newIndicator.className = "start-indicator";
+      newIndicator.style.left = x + "px";
+      newIndicator.style.top = "10px";
+      board.appendChild(newIndicator);
+    }
+
     function startGame() {
-      if (isDropping) return;
+      if (isDropping || selectedStartX === null) return;
+
       isDropping = true;
       const board = document.getElementById("board");
       const scoreDisplay = document.getElementById("score");
       scoreDisplay.textContent = "Score: 0";
 
-      // Remove old coin
       if (coin) coin.remove();
 
-      // Initialize physics
-      position = { x: board.offsetWidth / 2, y: 0 };
+      position = { x: selectedStartX, y: 10 };
       velocity = { x: 0, y: 0 };
       coin = document.createElement("div");
       coin.className = "coin";
       board.appendChild(coin);
 
-      // Physics loop
       function update() {
         velocity.y += 0.5; // Gravity
         position.x += velocity.x;
@@ -191,7 +212,6 @@
         const slotIndex = Math.floor((position.x - startX) / slotWidth);
         let baseScore = SLOTS[slotIndex] || 0;
 
-        // Apply bonus
         let multiplier = 1;
         if (BONUS_ZONES.includes(slotIndex)) {
           multiplier = 2;
@@ -202,6 +222,21 @@
 
       update();
     }
+
+    // Allow player to click to choose starting position
+    document.getElementById("board").addEventListener("click", (e) => {
+      if (isDropping) return;
+
+      const board = document.getElementById("board");
+      const rect = board.getBoundingClientRect();
+      const clickY = e.clientY - rect.top;
+
+      // Only allow click in top area (near starting line)
+      if (clickY < 50) {
+        selectedStartX = e.clientX - rect.left;
+        setStartIndicator(selectedStartX);
+      }
+    });
 
     // Initialize
     window.onload = () => {

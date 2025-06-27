@@ -1,0 +1,70 @@
+<!-- 1. 创建容器 -->
+<div id="c"></div>
+
+<!-- 2. 引入 matter -->
+<script src="https://cdn.bootcdn.net/ajax/libs/matter-js/0.19.0/matter.js"></script>
+<script>
+
+  const Engine = Matter.Engine
+  const Render = Matter.Render
+  const Bodies = Matter.Bodies
+  const Composite = Matter.Composite
+  const Runner = Matter.Runner
+
+  // 3. 创建引擎
+  const engine = Engine.create()
+  const runner = Runner.create()
+
+  // 4. 创建渲染器，并将引擎连接到画布上
+  let render = Render.create({
+    element: document.getElementById('c'), // 绑定页面元素
+    engine: engine,
+	options: {
+		width: 800,
+		height: 800,
+		wireframes: false,
+		background: "white"
+	}	// 绑定引擎
+  })
+
+  // 5-1. 创建两个正方形
+  //let boxA = Bodies.rectangle(400, 200, 90, 80, {restitution: 1})
+  //let boxB = Bodies.rectangle(450, 50, 80, 80)
+  let circleA = Bodies.circle(100, 100, 40, {restitution: 0.7, render: {fillStyle: 'orange'}})  
+  
+  // 5-2. 创建地面，将isStatic设为true，表示物体静止
+  let ground = Bodies.rectangle(400, 610, 810, 60, { isStatic: true })
+  let leftwall = Bodies.rectangle(0, 300, 60, 810, { isStatic: true })
+  let rightwall = Bodies.rectangle(800, 300, 60, 810, { isStatic: true })
+  let ceiling = Bodies.rectangle(400, 0, 810, 60, { isStatic: true })
+
+  let standA = Bodies.rectangle(700, 400, 30, 400, { isStatic: true })
+  let standB = Bodies.rectangle(685, 200, 50, 30, { isStatic: true })
+  let board = Bodies.rectangle(655, 200, 10, 200, { isStatic: true })
+  
+  // 创建鼠标实例
+  let mouse = Matter.Mouse.create(render.canvas)
+  
+  // 给鼠标添加约束
+  let mouseConstraint = Matter.MouseConstraint.create(engine, {
+    mouse: mouse,
+    constraint: {
+      stiffness: 1,
+      render: {
+        visible: false // 默认为 true，会显示鼠标拖拽轨迹
+      }
+    }
+  })
+
+  // 6. 将所有物体添加到世界中
+  Composite.add(engine.world, [circleA, ground, leftwall, rightwall, ceiling, standA, standB, board, mouseConstraint])
+
+  // 7. 执行渲染操作
+  Render.run(render)
+
+  // 8. 创建运行方法
+
+
+  // 9. 运行渲染器
+  Runner.run(runner, engine)
+</script>

@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        .drum-pad {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: #333;
+            color: white;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 20px;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        
+        .drum-pad:active {
+            transform: scale(0.95);
+        }
+        
+        .drum-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="drum-container">
+        <div class="drum-pad" data-type="kick">Kick</div>
+        <div class="drum-pad" data-type="snare">Snare</div>
+        <div class="drum-pad" data-type="hihat">Hi-Hat</div>
+    </div>
+
+    <script>
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        const audioCtx = new AudioContext();
+
+        // Drum sound generator
+        function createKick() {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+            
+            gain.gain.setValueAtTime(1, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+            
+            osc.connect(gain).connect(audioCtx.destination);
+            osc.start();
+        }
+
+        function createSnare() {
+            const noise = audioCtx.createBufferSource();
+            const filter = audioCtx.createBiquadFilter();
+            const gain = audioCtx.createGain();
+            
+            // Create white noise buffer
+            const bufferSize = audioCtx.sampleRate * 0.2;
+            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = Math.random() * 2 - 1;
+            }
+            
+            noise.buffer = buffer;
+            noise.loop = false;
+            
+            filter.type = 'bandpass';
+            filter.frequency.setValueAtTime(200, audioCtx.currentTime);
+            filter.Q.setValueAtTime(1, audioCtx.currentTime);
+            
+            gain.gain.setValueAtTime(1, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+            
+            noise.connect(filter).connect(gain).connect(audioCtx.destination);
+            noise.start();
+        }
+
+        function createHiHat() {
+            const noise = audioCtx.createBufferSource();
+            const filter = audioCtx.createBiquadFilter();
+            const gain = audioCtx.createGain();
+            
+            // Create high-pass filtered noise
+            const bufferSize = audioCtx.sampleRate * 0.1;
+            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = Math.random() * 2 - 1;
+            }
+            
+            noise.buffer = buffer;
+            noise.loop = false;
+            
+            filter.type = 'highpass';
+            filter.frequency.setValueAtTime(5000, audioCtx.currentTime);
+            
+            gain.gain.setValueAtTime(1, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+            
+            noise.connect(filter).connect(gain).connect(audioCtx.destination);
+            noise.start();
+        }
+
+        // Event listeners
+        document.querySelectorAll('.drum-pad').forEach(pad => {
+            ['click', 'touchstart'].forEach(event => {
+                pad.addEventListener(event, (e) => {
+                    e.preventDefault();
+                    const type = pad.getAttribute('data-type');
+                    switch(type) {
+                        case 'kick':
+                            createKick();
+                            break;
+                        case 'snare':
+                            createSnare();
+                            break;
+                        case 'hihat':
+                            createHiHat();
+                            break;
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
